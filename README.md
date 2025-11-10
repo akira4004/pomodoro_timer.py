@@ -1,2 +1,2 @@
-mkdir pomodoro_timer
-cd pomodoro_timer
+pomodoro_timer/
+механизм
