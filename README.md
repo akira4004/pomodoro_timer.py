@@ -1,2 +1,2 @@
-# pomodoro_timer.py
-механизм
+mkdir pomodoro_timer
+cd pomodoro_timer
