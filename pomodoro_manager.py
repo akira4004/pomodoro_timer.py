@@ -20,7 +20,7 @@ class PomodoroTimer:
         self.current_exercise = None
         
     def _get_random_exercise(self):
-        """Получить случайное упражнение из списка"""
+        """Выбирает случайное упражнение из списка"""
         if self.exercises:
             return random.choice(self.exercises)
         return {"name": "💪 Упражнения", "description": "Выполняйте ваши обычные упражнения"}
@@ -36,30 +36,32 @@ class PomodoroTimer:
         
     def _run_timer(self):
         print(f"\n🎯 ЗАПУСК {self.name}")
-        print(f"📊 Циклов: {self.cycles}")
+        if self.exercises:
+            print(f"📋 В программе: {len(self.exercises)} упражнений")
+        print(f"📊 Всего циклов: {self.cycles}")
         
         # Показываем все упражнения перед началом
         if self.exercises:
-            print(f"\n📋 ПЛАН УПРАЖНЕНИЙ:")
+            print(f"\n📖 ПРОГРАММА ТРЕНИРОВКИ:")
             for i, exercise in enumerate(self.exercises, 1):
                 print(f"   {i}. {exercise['name']}")
-            print(f"\n💡 В каждом цикле будет выбрано случайное упражнение")
-            input("\n↵ Нажмите Enter чтобы начать тренировку...")
+        
+        input("\n↵ Нажмите Enter чтобы начать тренировку...")
         
         for cycle in range(1, self.cycles + 1):
             if not self.is_running: break
             self.current_cycle = cycle
             
+            # Выбираем случайное упражнение для этого цикла
+            self.current_exercise = self._get_random_exercise()
+            
             if self.is_running:
                 self.current_mode = "work"
-                self.current_exercise = self._get_random_exercise()
-                success = self._run_phase("💪 УПРАЖНЕНИЯ", self.work_duration, cycle)
-                if not success: break
+                self._run_phase("💪 УПРАЖНЕНИЯ", self.work_duration, cycle)
             
             if self.is_running and cycle < self.cycles:
                 self.current_mode = "break"
-                success = self._run_phase("☕ ОТДЫХ", self.break_duration, cycle)
-                if not success: break
+                self._run_phase("☕ ОТДЫХ", self.break_duration, cycle)
         
         if self.is_running:
             print("\n🎉 ТРЕНИРОВКА ЗАВЕРШЕНА! Отличная работа! 🎉")
@@ -69,23 +71,31 @@ class PomodoroTimer:
         self.remaining_time = duration
         start_time = time.time()
         
-        print(f"\n⏰ {phase_name} - Цикл {cycle}/{self.cycles}")
+        print(f"\n{'='*60}")
         
-        # Показываем упражнение в фазе работы
         if phase_name == "💪 УПРАЖНЕНИЯ" and self.current_exercise:
+            print(f"⏰ ЦИКЛ {cycle}/{self.cycles} - {phase_name}")
             print(f"🎯 {self.current_exercise['name']}")
             print(f"📝 {self.current_exercise['description']}")
+        else:
+            print(f"⏰ ЦИКЛ {cycle}/{self.cycles} - {phase_name}")
+            print(f"🕐 Длительность: {self._format_time(duration)}")
         
-        print(f"🕐 Длительность: {self._format_time(duration)}")
+        print(f"🚀 Начало: {datetime.now().strftime('%H:%M:%S')}")
+        print()
         
         try:
             while self.remaining_time > 0 and self.is_running:
                 mins, secs = divmod(self.remaining_time, 60)
                 time_display = f"{mins:02d}:{secs:02d}"
+                
+                # Прогресс-бар
                 progress = (duration - self.remaining_time) / duration
                 bars = int(progress * 30)
                 progress_bar = "[" + "█" * bars + "▒" * (30 - bars) + "]"
+                
                 print(f'\r{progress_bar} {time_display} осталось', end='', flush=True)
+                
                 time.sleep(1)
                 elapsed = time.time() - start_time
                 self.remaining_time = max(0, duration - int(elapsed))
@@ -126,7 +136,7 @@ class PomodoroManager:
     
     def list_presets(self):
         print("\n📋 ДОСТУПНЫЕ РЕЖИМЫ:")
-        print("-" * 50)
+        print("-" * 60)
         for i, preset in enumerate(self.presets, 1):
             work_min = preset['workDuration'] // 60
             break_min = preset['breakDuration'] // 60
@@ -136,31 +146,53 @@ class PomodoroManager:
             print(f"   🔄 Циклов: {preset['cycles']}")
             print(f"   📝 {preset['description']}")
             
-            # Показываем упражнения режима
+            # Показываем упражнения если они есть
             if 'exercises' in preset and preset['exercises']:
-                print(f"   💪 Упражнения:")
-                for exercise in preset['exercises']:
-                    print(f"      • {exercise['name']}")
+                print(f"   💪 Упражнения: {len(preset['exercises'])} видов")
+                for ex in preset['exercises']:
+                    print(f"      • {ex['name']}")
             
+            if preset['id'] == 'quick_test':
+                print(f"   🧪 [ТЕСТОВЫЙ РЕЖИМ - для проверки]")
             print()
+    
+    def show_exercise_details(self, preset_id):
+        """Показывает детали упражнений для выбранного режима"""
+        preset = next((p for p in self.presets if p['id'] == preset_id), None)
+        if preset and 'exercises' in preset:
+            print(f"\n📖 ДЕТАЛИ ТРЕНИРОВКИ: {preset['name']}")
+            print("=" * 50)
+            for i, exercise in enumerate(preset['exercises'], 1):
+                print(f"\n{i}. {exercise['name']}")
+                print(f"   📝 {exercise['description']}")
+            print("\n" + "=" * 50)
+            return True
+        else:
+            print("❌ Для этого режима нет описаний упражнений")
+            return False
     
     def create_timer(self, preset_id):
         preset = next((p for p in self.presets if p['id'] == preset_id), None)
         if preset:
             exercises = preset.get('exercises', [])
-            return PomodoroTimer(
+            timer = PomodoroTimer(
                 work_duration=preset['workDuration'],
                 break_duration=preset['breakDuration'],
                 cycles=preset['cycles'],
                 name=preset['name'],
                 exercises=exercises
             )
+            return timer
         return None
     
     def start_timer_by_id(self, preset_id):
         if self.current_timer and self.current_timer.is_running:
             print("❌ Уже запущен другой таймер")
             return False
+        
+        # Показываем детали упражнений перед запуском
+        self.show_exercise_details(preset_id)
+        
         self.current_timer = self.create_timer(preset_id)
         if self.current_timer:
             self.current_timer.start()
